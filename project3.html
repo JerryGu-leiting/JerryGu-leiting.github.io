@@ -14,46 +14,62 @@
   <div class="topbar"><a href="index.html">← ROB 511 Portfolio</a><span>Project 3</span></div>
 
   <p class="eyebrow">Project 3 · Forward kinematics</p>
-  <h1>A robot arm that dances from its own URDF</h1>
-  <p class="lede">My runtime reads a robot description, works out where every link is from the joint angles, and streams those poses to a viewer. A finite state machine drives the joints through a choreography.</p>
+  <h1>FK runtime and a choreographed arm</h1>
+  <p class="lede">A C++ runtime that takes a URDF and joint angles and publishes the world pose of every link. A state machine drives a 7-DOF demo arm through a choreography, rendered by a three.js viewer.</p>
 
   <figure>
     <div class="video">
       <video src="media/fk_dance.mp4" controls playsinline muted loop preload="metadata"></video>
     </div>
-    <figcaption>The demo arm running two rounds of its choreography in my three.js viewer while the camera slowly orbits. The label at the bottom shows the current FSM state.</figcaption>
+    <figcaption>Two loops of the choreography, 60 s. Each frame is drawn from <code>/xform_world</code>. The label shows the current FSM state. Recorded from a headless Chromium session.</figcaption>
   </figure>
 
-  <h2>The robot</h2>
-  <p>I designed a small arm for this video and described it in URDF. It uses only boxes, cylinders and spheres, so the viewer can draw it without mesh files. It has 10 links and 9 joints and uses all four joint types the project supports.</p>
+  <h2>Robot</h2>
+  <p>I wrote <code>demo_arm.urdf</code> for this demo: 10 links, 9 joints, 7 DOF. The visuals are boxes, cylinders and spheres only, so the viewer needs no mesh files. All four supported joint types are used.</p>
   <div class="table-wrap"><table>
-    <thead><tr><th>Joint</th><th>Type</th><th>Moves</th></tr></thead>
+    <thead><tr><th>Joint</th><th>Type</th><th>Range</th><th>Axis</th></tr></thead>
     <tbody>
-      <tr><td><code>base_yaw</code></td><td>continuous</td><td>turntable about z</td></tr>
-      <tr><td><code>shoulder_pitch</code></td><td>revolute, ±1.7 rad</td><td>upper arm about y</td></tr>
-      <tr><td><code>elbow_pitch</code></td><td>revolute, ±2.5 rad</td><td>forearm about y</td></tr>
-      <tr><td><code>wrist_pitch</code></td><td>revolute, ±2.0 rad</td><td>wrist about y</td></tr>
-      <tr><td><code>wrist_roll</code></td><td>revolute, ±3.14 rad</td><td>hand about its own axis</td></tr>
-      <tr><td><code>finger_left</code>, <code>finger_right</code></td><td>prismatic, 0–7 cm</td><td>gripper fingers, opposite axes</td></tr>
-      <tr><td><code>elbow_cap</code>, <code>tool_center</code></td><td>fixed</td><td>elbow knuckle and tool-tip marker</td></tr>
+      <tr><td><code>base_yaw</code></td><td>continuous</td><td>—</td><td>z</td></tr>
+      <tr><td><code>shoulder_pitch</code></td><td>revolute</td><td>±1.7 rad</td><td>y</td></tr>
+      <tr><td><code>elbow_pitch</code></td><td>revolute</td><td>±2.5 rad</td><td>y</td></tr>
+      <tr><td><code>wrist_pitch</code></td><td>revolute</td><td>±2.0 rad</td><td>y</td></tr>
+      <tr><td><code>wrist_roll</code></td><td>revolute</td><td>±3.14 rad</td><td>z</td></tr>
+      <tr><td><code>finger_left</code> / <code>finger_right</code></td><td>prismatic</td><td>0–0.07 m</td><td>+y / −y</td></tr>
+      <tr><td><code>elbow_cap</code>, <code>tool_center</code></td><td>fixed</td><td>—</td><td>—</td></tr>
     </tbody>
   </table></div>
 
-  <h2>The choreography</h2>
-  <p>The dance is a table of 15 states. Each state is a joint-space setpoint. When every joint is within 0.02 of its target, the state machine follows the state's <code>on_arrival</code> transition to the next one. After the last state it loops back to the start.</p>
+  <h2>Choreography</h2>
+  <p>15 states, each a joint-space setpoint for all 7 joints. A state is reached when every joint is within ε = 0.02 (rad or m) of its target; the FSM then takes the <code>on_arrival</code> transition. The last state loops back to <code>home</code>.</p>
   <ul class="states" aria-label="Choreography states in order">
     <li>home</li><li>reach</li><li>grasp</li><li>lift</li><li>carry</li><li>place</li><li>release</li><li>stand_up</li>
     <li>wave_up</li><li>wave_left</li><li>wave_right</li><li>wave_left2</li><li>spin</li><li>bow</li><li>rise</li><li class="sep">↺</li>
   </ul>
-  <p>The first half is a pick-and-place: reach down, close the gripper, lift, swing the turntable around, and set the object down. The second half waves, spins half a turn, and bows.</p>
+  <ul>
+    <li><strong>States 1–8:</strong> pick-and-place. Reach, close gripper, lift, rotate base 2.2 rad, place, open.</li>
+    <li><strong>States 9–15:</strong> wave, rotate base to π, bow, stand back up.</li>
+  </ul>
 
-  <h2>How it works</h2>
+  <h2>Implementation</h2>
   <h3>Forward kinematics</h3>
-  <p>The runtime parses the URDF itself, finds the root link, and walks the tree. Each joint's transform is <code>T_origin · T_motion(q)</code>. Rotations are unit quaternions built directly from roll-pitch-yaw and axis-angle; no kinematics library is used. <code>robot_state_publisher</code> publishes every joint's transform on <code>/tf</code>. <code>robot_world_state_publisher</code> composes them from the root down and publishes each link's 4×4 pose on <code>/xform_world</code> at 10 Hz.</p>
+  <ul>
+    <li>URDF parsed and validated in the runtime (pugixml for XML only). Root found as the one link that is no joint's child.</li>
+    <li>Joint transform: <code>T_joint(q) = T_origin · T_motion(q)</code>. Rotations are unit quaternions built from RPY and axis-angle. No kinematics or transform library.</li>
+    <li><code>robot_state_publisher</code>: <code>/joint_states</code> in, one transform per joint on <code>/tf</code> at 10 Hz.</li>
+    <li><code>robot_world_state_publisher</code>: composes <code>/tf</code> from the root down with <code>/global_pose</code> and publishes each link's 4×4 pose (column-major) on <code>/xform_world</code>.</li>
+  </ul>
   <h3>Motion</h3>
-  <p>A <code>joint_state_publisher</code> node acts as the motors. It moves each joint toward its setpoint with a proportional servo, capped at the joint's velocity limit, so the arm speeds up and settles smoothly. The <code>finite_state_machine</code> node publishes each state's setpoint and watches <code>/joint_states</code> to decide when the arm has arrived.</p>
-  <h3>Drawing it</h3>
-  <p>The viewer is a three.js page. A small Python bridge connects to the runtime over TCP and forwards <code>/xform_world</code> to the browser with Server-Sent Events. The page builds one mesh per link from the URDF's visual shapes. On every update it copies each link's matrix straight into three.js, because <code>/xform_world</code> is column-major, the same layout <code>Matrix4.fromArray</code> reads. URDF is z-up and three.js is y-up, so the viewer rotates the whole scene by −90° about x. The orange lines are the kinematic skeleton, and the yellow line traces the tool tip.</p>
+  <ul>
+    <li><code>joint_state_publisher</code>: P servo at 20 Hz, gain 4 s⁻¹, speed capped at each joint's URDF velocity limit, positions clamped to joint limits.</li>
+    <li><code>finite_state_machine</code>: publishes each state's setpoint on <code>/joint_trajectory</code>, checks arrival against <code>/joint_states</code> at 10 Hz.</li>
+  </ul>
+  <h3>Viewer</h3>
+  <ul>
+    <li>three.js page. A Python bridge subscribes to the runtime over TCP and pushes <code>/xform_world</code> to the browser via Server-Sent Events.</li>
+    <li>Meshes are built from each link's URDF <code>&lt;visual&gt;</code>. Each update is loaded with <code>Matrix4.fromArray</code>, which matches the column-major layout.</li>
+    <li>Poses arrive at ~20 Hz; the viewer interpolates between them for smooth playback.</li>
+    <li>Scene rotated −90° about x to map URDF z-up to three.js y-up. This correction lives in the viewer only.</li>
+  </ul>
 
   <footer>ROB 511 · Project 3 · October 2026</footer>
 </div>
