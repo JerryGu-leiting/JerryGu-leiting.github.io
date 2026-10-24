@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ROB 511 Portfolio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@700;800&family=JetBrains+Mono:wght@400;600&family=Source+Sans+3:wght@400;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><span>ROB 511 · University of Michigan</span><a href="https://github.com/JerryGu-leiting">github.com/JerryGu-leiting</a></div>
+
+  <p class="eyebrow">Course portfolio</p>
+  <h1>Robot software, built from the transport up</h1>
+  <p class="lede">Projects from ROB 511. Each one is a ROS-style runtime written in C++17 that speaks a rosbridge TCP/JSON protocol on <code>127.0.0.1:9095</code>. Every project reuses the publish/subscribe middleware from the one before it.</p>
+
+  <ul class="projects">
+    <li>
+      <a class="project" href="project3.html">
+        <span class="num">P3</span>
+        <h3>Forward kinematics from real URDF</h3>
+        <p>Parses a robot description, builds its kinematic tree, and publishes every link's pose in the world frame. Includes a three.js viewer and a choreographed dance.</p>
+        <span class="tags">URDF · unit quaternions · /tf · /xform_world · finite state machine</span>
+      </a>
+    </li>
+    <li>
+      <div class="project">
+        <span class="num">P2</span>
+        <h3>Pendularm: arm dynamics and control</h3>
+        <p>Lagrangian dynamics for a 2- and 3-link planar arm, four numerical integrators, per-joint PID control, and closed-form inverse kinematics.</p>
+        <span class="tags">dynamics · RK4 · PID · IK</span>
+      </div>
+    </li>
+    <li>
+      <div class="project">
+        <span class="num">P1</span>
+        <h3>Publish/subscribe middleware and A* planning</h3>
+        <p>A message hub and rosbridge gateway written from scratch, with a grid path planner served over it.</p>
+        <span class="tags">pub/sub · TCP gateway · A* · binary heap</span>
+      </div>
+    </li>
+  </ul>
+
+  <footer>Last updated October 2026</footer>
+</div>
+</body>
+</html>
